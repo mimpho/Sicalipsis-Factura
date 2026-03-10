@@ -1,0 +1,5 @@
+{
+  "name": "Factura Autonomo Pro",
+  "description": "Generador de facturas para autónomos en España con cumplimiento de normativa Veri*factu y códigos QR.",
+  "requestFramePermissions": []
+}
