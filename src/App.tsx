@@ -13,9 +13,9 @@ import { InvoiceData, InvoiceItem, DEFAULT_INVOICE } from './types';
 
 // Static asset paths
 const ASSETS = {
-  logo: '/images/logo.jpeg',
-  header: '/images/floral_header.jpeg',
-  footer: '/images/floral_footer.jpeg'
+  logo: 'images/logo.jpeg',
+  header: 'images/floral_header.jpeg',
+  footer: 'images/floral_footer.jpeg'
 };
 
 
