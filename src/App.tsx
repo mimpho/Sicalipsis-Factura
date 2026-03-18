@@ -620,10 +620,6 @@ export default function App() {
                 <div className="text-right opacity-0 pointer-events-none">
                   <div className="h-44 w-60" />
                 </div>
-              )}
-              <div className="flex justify-between items-center pt-4 border-t border-[#1a1a1a] mt-4">
-                <span className="text-[14px] font-sans font-bold uppercase tracking-widest">TOTAL</span>
-                <span className="text-[14px] font-sans font-bold">{totals.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€</span>
               </div>
 
               {/* Items Table */}
@@ -641,6 +637,7 @@ export default function App() {
                     </div>
                   ))}
                 </div>
+              </div>
 
               {/* Totals Section */}
               <div className="relative z-10 pt-4 border-t border-slate-300 mt-4">
@@ -713,7 +710,6 @@ export default function App() {
                 <div />
               </div>
             </div>
-          </div>
           </div>
         </div>
       </div>
