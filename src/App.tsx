@@ -1,20 +1,26 @@
-import React, { useState, useMemo, useRef } from 'react';
-import { 
-  Plus, 
-  Trash2, 
-  Download, 
-  FileText, 
-  User, 
-  Building2, 
-  Calendar, 
-  Hash, 
-  Euro, 
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import {
+  Plus,
+  Trash2,
+  Download,
+  FileText,
+  User,
+  Building2,
+  Calendar,
+  Hash,
+  Euro,
   Info,
   CheckCircle2,
   Printer,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Camera,
+  PenTool,
+  MousePointer2,
+  Instagram,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -24,9 +30,191 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { InvoiceData, InvoiceItem, DEFAULT_INVOICE } from './types';
 
+const LOGO_URL = "/images/logo.jpeg";
+const FLORAL_HEADER_URL = "/images/floral_header.jpeg";
+const FLORAL_FOOTER_URL = "/images/floral_footer.jpeg";
+
+const Slider = ({ label, value, min, max, onChange, unit = "px" }: { label: string, value: number, min: number, max: number, onChange: (val: number) => void, unit?: string }) => (
+  <div className="space-y-1">
+    <div className="flex justify-between items-center">
+      <label className="text-[8px] font-medium text-slate-400 uppercase">{label}</label>
+      <span className="text-[8px] font-mono text-slate-500">{value}{unit}</span>
+    </div>
+    <input
+      type="range" min={min} max={max} value={value}
+      onChange={(e) => onChange(parseInt(e.target.value))}
+      className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#1a1a1a]"
+    />
+  </div>
+);
+
+interface VisualImage {
+  id: string;
+  src: string;
+  width: number;
+  x: number;
+  y: number;
+  zIndex: number;
+}
+
+const TransformableImage = ({
+  image,
+  onChange,
+  isEditMode,
+  containerRef,
+  className = ""
+}: {
+  image: VisualImage,
+  onChange: (updates: Partial<VisualImage>) => void,
+  isEditMode: boolean,
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  className?: string,
+  key?: React.Key
+}) => {
+  if (!image.src) return null;
+
+  return (
+    <motion.div
+      drag={isEditMode}
+      dragMomentum={false}
+      dragConstraints={containerRef}
+      dragElastic={0}
+      // Reset transform after drag ends and state updates left/top
+      animate={{ x: 0, y: 0 }}
+      transition={{ duration: 0 }}
+      onDragEnd={(_, info) => {
+        if (containerRef.current) {
+          // Get the scale from the parent container's style or calculate it
+          // Since we know the scale state in App, but we are in a child, 
+          // we can either pass it down or calculate it from the rect
+          const rect = containerRef.current.getBoundingClientRect();
+          const currentScale = rect.width / 800;
+
+          // Adjust offset by the scale factor
+          const newX = Math.round(image.x + (info.offset.x / currentScale));
+          const newY = Math.round(image.y + (info.offset.y / currentScale));
+
+          onChange({ x: newX, y: newY });
+        }
+      }}
+      style={{
+        position: 'absolute',
+        left: image.x,
+        top: image.y,
+        width: image.width,
+        zIndex: isEditMode ? 100 + image.zIndex : image.zIndex,
+        cursor: isEditMode ? 'move' : 'default',
+        touchAction: 'none'
+      }}
+      className={`${isEditMode ? 'outline outline-2 outline-blue-400 outline-dashed bg-blue-50/10 group' : ''} ${className}`}
+    >
+      <img
+        src={image.src}
+        alt=""
+        className="w-full h-auto block pointer-events-none"
+        style={{ opacity: 0.9 }}
+        referrerPolicy="no-referrer"
+        crossOrigin="anonymous"
+      />
+
+      {isEditMode && (
+        <>
+          {/* Resize Handle */}
+          <motion.div
+            drag
+            dragMomentum={false}
+            animate={{ x: 0, y: 0 }}
+            transition={{ duration: 0 }}
+            onDrag={(_, info) => {
+              const rect = containerRef.current?.getBoundingClientRect();
+              const currentScale = rect ? rect.width / 800 : 1;
+              const newWidth = Math.max(20, image.width + (info.delta.x / currentScale));
+              onChange({ width: newWidth });
+            }}
+            className="absolute -right-2 -bottom-2 w-6 h-6 bg-blue-500 rounded-full border-2 border-white cursor-nwse-resize shadow-lg flex items-center justify-center z-[110]"
+          >
+            <div className="w-1.5 h-1.5 bg-white rounded-full opacity-50" />
+          </motion.div>
+
+
+
+          {/* Info Label */}
+          <div className="absolute -top-7 left-0 bg-blue-600 text-white text-[9px] px-2 py-0.5 rounded shadow-sm uppercase font-bold whitespace-nowrap pointer-events-none z-[110]">
+            {image.width}px | {image.x},{image.y}
+          </div>
+        </>
+      )}
+    </motion.div>
+  );
+};
+
 export default function App() {
   const [data, setData] = useState<InvoiceData>(DEFAULT_INVOICE);
+  const [images, setImages] = useState<VisualImage[]>([
+    { id: 'logo', src: LOGO_URL, width: 120, x: 550, y: 40, zIndex: 0 },
+    { id: 'header-floral', src: FLORAL_HEADER_URL, width: 250, x: 20, y: 20, zIndex: 0 },
+    { id: 'footer-floral', src: FLORAL_FOOTER_URL, width: 250, x: 450, y: 800, zIndex: 0 }
+  ]);
+
+  const [showIssuer, setShowIssuer] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [containerScale, setContainerScale] = useState(1);
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const containerWrapperRef = useRef<HTMLDivElement>(null);
+
+  // Handle responsive scaling for the 800px fixed-width invoice
+  useEffect(() => {
+    const updateScale = () => {
+      if (containerWrapperRef.current) {
+        const parentWidth = containerWrapperRef.current.offsetWidth;
+        const parentHeight = containerWrapperRef.current.offsetHeight;
+        // Optimized shadow margins: 30px per side for width, and 80px total for height (to account for the 45px bottom offset + blur)
+        const scaleX = (parentWidth - 60) / 800;
+        const scaleY = (parentHeight - 80) / 1131;
+
+        // Use the smaller scale to ensure it fits both ways
+        const newScale = Math.min(2.0, scaleX, scaleY);
+        setContainerScale(newScale);
+      }
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    const observer = new ResizeObserver(updateScale);
+    if (containerWrapperRef.current) observer.observe(containerWrapperRef.current);
+
+    return () => {
+      window.removeEventListener('resize', updateScale);
+      observer.disconnect();
+    };
+  }, []);
+
+  const updateImage = (id: string, updates: Partial<VisualImage>) => {
+    setImages(prev => prev.map(img => img.id === id ? { ...img, ...updates } : img));
+  };
+
+
+
+  // Convert static local images to Base64 to ensure they render in generated PDF
+  useEffect(() => {
+    const loadAsBase64 = async (id: string, url: string) => {
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImages(prev => prev.map(img => img.id === id ? { ...img, src: reader.result as string } : img));
+        };
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        console.warn(`Failed to preload image: ${url}`, err);
+      }
+    };
+
+    loadAsBase64('logo', LOGO_URL);
+    loadAsBase64('header-floral', FLORAL_HEADER_URL);
+    loadAsBase64('footer-floral', FLORAL_FOOTER_URL);
+  }, []);
 
   // Calculations
   const totals = useMemo(() => {
@@ -57,13 +245,36 @@ export default function App() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+
+    // Handle numeric fields
+    if (name === 'ivaRate' || name === 'irpfRate') {
+      setData(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+      return;
+    }
+
     setData(prev => ({ ...prev, [name]: value }));
   };
 
+
+
+  const safeFormatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      return format(date, 'dd MMMM yyyy', { locale: es });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
   const handleItemChange = (id: string, field: keyof InvoiceItem, value: string | number) => {
+    const processedValue = (field === 'quantity' || field === 'unitPrice')
+      ? (typeof value === 'string' ? (parseFloat(value) || 0) : value)
+      : value;
+
     setData(prev => ({
       ...prev,
-      items: prev.items.map(item => item.id === id ? { ...item, [field]: value } : item)
+      items: prev.items.map(item => item.id === id ? { ...item, [field]: processedValue } : item)
     }));
   };
 
@@ -85,376 +296,520 @@ export default function App() {
 
   const exportPDF = async () => {
     if (!invoiceRef.current) return;
-    
-    const canvas = await html2canvas(invoiceRef.current, {
-      scale: 2,
-      useCORS: true,
-      logging: false
-    });
-    
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-    
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`Factura_${data.invoiceSeries}_${data.invoiceNumber}.pdf`);
+
+    const wasEditMode = isEditMode;
+    if (wasEditMode) setIsEditMode(false);
+
+    try {
+      // Wait for UI to update
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // Ensure all images are loaded
+      const imgElements = Array.from(invoiceRef.current.querySelectorAll('img')) as HTMLImageElement[];
+      await Promise.all(imgElements.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+      }));
+
+      const canvas = await html2canvas(invoiceRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 800,
+        height: 1131,
+        windowWidth: 800,
+        windowHeight: 1131,
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.querySelector('#invoice-document') as HTMLElement;
+          if (el) {
+            el.style.transform = 'none';
+            el.style.marginBottom = '0';
+            el.style.boxShadow = 'none';
+            el.style.border = 'none';
+            el.style.borderRadius = '0';
+            el.style.width = '800px';
+            el.style.height = '1131px';
+            el.style.minHeight = '1131px';
+            el.style.position = 'relative';
+            el.style.left = '0';
+            el.style.top = '0';
+          }
+        }
+      });
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297);
+      pdf.save(`Factura_${data.invoiceSeries}_${data.invoiceNumber}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Hubo un error al generar el PDF. Por favor, inténtalo de nuevo.');
+    } finally {
+      if (wasEditMode) setIsEditMode(wasEditMode);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans p-4 md:p-8">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--ink)] font-sans">
+      <div className="mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
+
         {/* Form Section */}
-        <div className="space-y-6">
-          <header className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">Factura Autonomo Pro</h1>
-              <p className="text-slate-500 mt-1">Generador de facturas con normativa Veri*factu</p>
+        <div className="space-y-10 p-4 md:p-8 lg:p-12">
+          <header className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <img
+                  src={images.find(img => img.id === 'logo')?.src || LOGO_URL}
+                  alt="Sicalipsis Logo"
+                  className="h-20 w-auto"
+                  referrerPolicy="no-referrer"
+                  crossOrigin="anonymous"
+                />
+                <div className="h-10 w-px bg-[var(--ink)] opacity-10" />
+                <h1 className="text-2xl font-display font-bold tracking-tight">
+                  Factura Maker
+                </h1>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setIsEditMode(!isEditMode)}
+                  className={`text-[10px] uppercase tracking-widest px-4 py-2 rounded-full border transition-all flex items-center gap-2 ${isEditMode
+                    ? 'bg-blue-500 border-blue-500 text-white font-bold shadow-lg shadow-blue-200'
+                    : 'bg-white border-slate-200 text-slate-500 hover:border-slate-400'
+                    }`}
+                >
+                  <MousePointer2 size={12} />
+                  {isEditMode ? 'Guardar Diseño' : 'Editar Visualmente'}
+                </button>
+                <button
+                  onClick={exportPDF}
+                  className="bg-[#1a1a1a] text-white px-6 py-2.5 rounded-full font-bold text-xs uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-black/10"
+                >
+                  <Download size={14} /> Exportar PDF
+                </button>
+              </div>
             </div>
-            <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
-              <CheckCircle2 size={16} />
-              Normativa 2025
+            <div className="flex items-center gap-4 text-[11px] font-sans font-light uppercase tracking-[0.15em] opacity-40">
+              <div className="flex items-center gap-1.5">
+                <Camera size={12} /> Fotografia
+              </div>
+              <div className="w-1 h-1 bg-[var(--ink)] rounded-full" />
+              <div className="flex items-center gap-1.5">
+                <PenTool size={12} /> Disseny gràfic
+              </div>
             </div>
           </header>
 
-          {/* Issuer Data */}
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div className="flex items-center gap-2 mb-4 text-slate-800 font-semibold">
-              <User size={20} className="text-indigo-600" />
-              <h2>Mis Datos (Emisor)</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Nombre / Razón Social</label>
-                <input 
-                  type="text" name="issuerName" value={data.issuerName} onChange={handleInputChange}
-                  placeholder="Tu nombre completo"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                />
+          <div className="space-y-8">
+            {/* Client Data */}
+            <section className="space-y-6">
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+                <h2 className="font-display text-2xl font-light">Datos del Cliente</h2>
+                <span className="text-[10px] font-light uppercase tracking-widest text-slate-400">Receptor</span>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">NIF / CIF</label>
-                <input 
-                  type="text" name="issuerNif" value={data.issuerNif} onChange={handleInputChange}
-                  placeholder="12345678X"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Nombre Cliente</label>
+                  <input
+                    type="text" name="clientName" value={data.clientName} onChange={handleInputChange}
+                    placeholder="Nombre de la empresa o cliente"
+                    className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors text-lg font-display font-normal"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">NIF / CIF Cliente</label>
+                  <input
+                    type="text" name="clientNif" value={data.clientNif} onChange={handleInputChange}
+                    placeholder="B12345678"
+                    className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-1.5">
+                  <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Dirección Cliente</label>
+                  <input
+                    type="text" name="clientAddress" value={data.clientAddress} onChange={handleInputChange}
+                    className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                  />
+                </div>
               </div>
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Dirección Fiscal</label>
-                <input 
-                  type="text" name="issuerAddress" value={data.issuerAddress} onChange={handleInputChange}
-                  placeholder="Calle, Número, CP, Ciudad"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                />
-              </div>
-            </div>
-          </section>
+            </section>
 
-          {/* Client Data */}
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div className="flex items-center gap-2 mb-4 text-slate-800 font-semibold">
-              <Building2 size={20} className="text-indigo-600" />
-              <h2>Datos del Cliente (Receptor)</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Nombre Cliente</label>
-                <input 
-                  type="text" name="clientName" value={data.clientName} onChange={handleInputChange}
-                  placeholder="Nombre de la empresa o cliente"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                />
+            {/* Invoice Details */}
+            <section className="space-y-6">
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+                <h2 className="font-display text-2xl font-light">Detalles</h2>
+                <span className="text-[10px] font-light uppercase tracking-widest text-slate-400">Factura</span>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">NIF / CIF Cliente</label>
-                <input 
-                  type="text" name="clientNif" value={data.clientNif} onChange={handleInputChange}
-                  placeholder="B12345678"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Serie</label>
+                  <input
+                    type="text" name="invoiceSeries" value={data.invoiceSeries} onChange={handleInputChange}
+                    className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Número</label>
+                  <input
+                    type="text" name="invoiceNumber" value={data.invoiceNumber} onChange={handleInputChange}
+                    className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Fecha</label>
+                  <input
+                    type="date" name="invoiceDate" value={data.invoiceDate} onChange={handleInputChange}
+                    className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                  />
+                </div>
               </div>
-              <div className="md:col-span-2 space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Dirección Cliente</label>
-                <input 
-                  type="text" name="clientAddress" value={data.clientAddress} onChange={handleInputChange}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                />
-              </div>
-            </div>
-          </section>
+            </section>
 
-          {/* Invoice Details */}
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div className="flex items-center gap-2 mb-4 text-slate-800 font-semibold">
-              <FileText size={20} className="text-indigo-600" />
-              <h2>Detalles de la Factura</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Serie</label>
-                <input 
-                  type="text" name="invoiceSeries" value={data.invoiceSeries} onChange={handleInputChange}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                />
+            {/* Items */}
+            <section className="space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <div className="flex items-center gap-3">
+                  <h2 className="font-display text-2xl font-light">Conceptos</h2>
+                  <span className="text-[10px] font-light uppercase tracking-widest text-slate-400">Servicios</span>
+                </div>
+                <button
+                  onClick={addItem}
+                  className="text-[#1a1a1a] hover:underline text-[10px] font-light uppercase tracking-widest flex items-center gap-1 transition-all"
+                >
+                  <Plus size={12} /> Añadir Concepto
+                </button>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Número</label>
-                <input 
-                  type="text" name="invoiceNumber" value={data.invoiceNumber} onChange={handleInputChange}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                />
+              <div className="space-y-6">
+                <AnimatePresence initial={false}>
+                  {data.items.map((item) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      className="grid grid-cols-12 gap-6 items-end group"
+                    >
+                      <div className="col-span-6 space-y-1.5">
+                        <label className="text-[9px] font-light text-slate-400 uppercase tracking-widest">Descripción</label>
+                        <input
+                          type="text" value={item.description}
+                          onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
+                          placeholder="Ej: Sessió fotogràfica"
+                          className="w-full bg-transparent border-b border-slate-200 py-1.5 focus:border-[#1a1a1a] outline-none transition-colors text-sm font-display font-normal"
+                        />
+                      </div>
+                      <div className="col-span-2 space-y-1.5">
+                        <label className="text-[9px] font-light text-slate-400 uppercase tracking-widest text-center block">Cant.</label>
+                        <input
+                          type="number" value={item.quantity}
+                          onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)}
+                          className="w-full bg-transparent border-b border-slate-200 py-1.5 focus:border-[#1a1a1a] outline-none transition-colors text-center text-sm font-light"
+                        />
+                      </div>
+                      <div className="col-span-3 space-y-1.5">
+                        <label className="text-[9px] font-light text-slate-400 uppercase tracking-widest text-right block">Precio</label>
+                        <input
+                          type="number" value={item.unitPrice}
+                          onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)}
+                          className="w-full bg-transparent border-b border-slate-200 py-1.5 focus:border-[#1a1a1a] outline-none transition-colors text-right text-sm font-light"
+                        />
+                      </div>
+                      <div className="col-span-1 pb-1">
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          className="p-1.5 text-slate-300 hover:text-[#1a1a1a] transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Fecha</label>
-                <input 
-                  type="date" name="invoiceDate" value={data.invoiceDate} onChange={handleInputChange}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                />
-              </div>
-            </div>
-          </section>
+            </section>
 
-          {/* Items */}
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 text-slate-800 font-semibold">
-                <Hash size={20} className="text-indigo-600" />
-                <h2>Conceptos</h2>
+            {/* Taxes & Payment */}
+            <section className="space-y-6">
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
+                <h2 className="font-display text-2xl font-light">Impuestos y Pago</h2>
+                <span className="text-[10px] font-light uppercase tracking-widest text-slate-400">Final</span>
               </div>
-              <button 
-                onClick={addItem}
-                className="text-indigo-600 hover:bg-indigo-50 px-3 py-1 rounded-lg text-sm font-medium flex items-center gap-1 transition-colors"
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="space-y-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">IVA (%)</label>
+                    <select
+                      name="ivaRate" value={data.ivaRate} onChange={handleInputChange}
+                      className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors appearance-none font-light"
+                    >
+                      <option value={21}>21% (General)</option>
+                      <option value={10}>10% (Reducido)</option>
+                      <option value={4}>4% (Superreducido)</option>
+                      <option value={0}>0% (Exento)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">IRPF (%)</label>
+                    <select
+                      name="irpfRate" value={data.irpfRate} onChange={handleInputChange}
+                      className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors appearance-none font-light"
+                    >
+                      <option value={15}>15% (General)</option>
+                      <option value={7}>7% (Nuevos autónomos)</option>
+                      <option value={0}>0% (No aplica)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Método de Pago</label>
+                    <input
+                      type="text" name="paymentMethod" value={data.paymentMethod} onChange={handleInputChange}
+                      placeholder="Ej: Transferencia ES12 3456..."
+                      className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Notas / Observaciones</label>
+                    <textarea
+                      name="notes" value={data.notes} onChange={handleInputChange}
+                      rows={2}
+                      className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors resize-none font-light"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Issuer Data (Collapsible) */}
+            <section className="space-y-4">
+              <button
+                onClick={() => setShowIssuer(!showIssuer)}
+                className="w-full flex items-center justify-between border-b border-slate-200 pb-2 hover:opacity-70 transition-opacity"
               >
-                <Plus size={16} /> Añadir
+                <div className="flex items-center gap-3">
+                  <h2 className="font-display text-2xl font-light">Mis Datos</h2>
+                  <span className="text-[10px] font-light uppercase tracking-widest text-slate-400">Emisor</span>
+                </div>
+                {showIssuer ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
               </button>
-            </div>
-            <div className="space-y-4">
-              <AnimatePresence initial={false}>
-                {data.items.map((item) => (
-                  <motion.div 
-                    key={item.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="grid grid-cols-12 gap-3 items-end"
+
+              <AnimatePresence>
+                {showIssuer && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
                   >
-                    <div className="col-span-6 space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Descripción</label>
-                      <input 
-                        type="text" value={item.description} 
-                        onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
-                        placeholder="Ej: Consultoría web"
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                      />
-                    </div>
-                    <div className="col-span-2 space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Cant.</label>
-                      <input 
-                        type="number" value={item.quantity} 
-                        onChange={(e) => handleItemChange(item.id, 'quantity', parseFloat(e.target.value))}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                      />
-                    </div>
-                    <div className="col-span-3 space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Precio</label>
-                      <input 
-                        type="number" value={item.unitPrice} 
-                        onChange={(e) => handleItemChange(item.id, 'unitPrice', parseFloat(e.target.value))}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                      />
-                    </div>
-                    <div className="col-span-1 pb-1">
-                      <button 
-                        onClick={() => removeItem(item.id)}
-                        className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 pb-6">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Nombre / Razón Social</label>
+                        <input
+                          type="text" name="issuerName" value={data.issuerName} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors text-lg font-display font-normal"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">NIF / CIF</label>
+                        <input
+                          type="text" name="issuerNif" value={data.issuerNif} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Dirección Fiscal</label>
+                        <input
+                          type="text" name="issuerAddress" value={data.issuerAddress} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Web 1</label>
+                        <input
+                          type="text" name="issuerWeb1" value={data.issuerWeb1} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Web 2</label>
+                        <input
+                          type="text" name="issuerWeb2" value={data.issuerWeb2} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Email Contacto</label>
+                        <input
+                          type="email" name="issuerContactEmail" value={data.issuerContactEmail} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Teléfono Contacto</label>
+                        <input
+                          type="text" name="issuerContactPhone" value={data.issuerContactPhone} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Dirección Contacto</label>
+                        <input
+                          type="text" name="issuerContactAddress" value={data.issuerContactAddress} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Instagram 1</label>
+                        <input
+                          type="text" name="issuerInstagram1" value={data.issuerInstagram1} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">Instagram 2</label>
+                        <input
+                          type="text" name="issuerInstagram2" value={data.issuerInstagram2} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                        />
+                      </div>
+                      <div className="md:col-span-2 space-y-1.5">
+                        <label className="text-[10px] font-light text-slate-400 uppercase tracking-widest">IBAN / Cuenta Bancaria</label>
+                        <input
+                          type="text" name="issuerIban" value={data.issuerIban} onChange={handleInputChange}
+                          className="w-full bg-transparent border-b border-slate-300 py-2 focus:border-[#1a1a1a] outline-none transition-colors font-light"
+                        />
+                      </div>
                     </div>
                   </motion.div>
-                ))}
+                )}
               </AnimatePresence>
-            </div>
-          </section>
+            </section>
 
-          {/* Taxes & Payment */}
-          <section className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div className="flex items-center gap-2 mb-4 text-slate-800 font-semibold">
-              <Euro size={20} className="text-indigo-600" />
-              <h2>Impuestos y Pago</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">IVA (%)</label>
-                  <select 
-                    name="ivaRate" value={data.ivaRate} onChange={handleInputChange}
-                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  >
-                    <option value={21}>21% (General)</option>
-                    <option value={10}>10% (Reducido)</option>
-                    <option value={4}>4% (Superreducido)</option>
-                    <option value={0}>0% (Exento)</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">IRPF (%)</label>
-                  <select 
-                    name="irpfRate" value={data.irpfRate} onChange={handleInputChange}
-                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  >
-                    <option value={15}>15% (General)</option>
-                    <option value={7}>7% (Nuevos autónomos)</option>
-                    <option value={0}>0% (No aplica)</option>
-                  </select>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Método de Pago</label>
-                  <input 
-                    type="text" name="paymentMethod" value={data.paymentMethod} onChange={handleInputChange}
-                    placeholder="Ej: Transferencia ES12 3456..."
-                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Notas / Observaciones</label>
-                  <textarea 
-                    name="notes" value={data.notes} onChange={handleInputChange}
-                    rows={2}
-                    className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none"
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
+
+          </div>
         </div>
 
         {/* Preview Section */}
-        <div className="lg:sticky lg:top-8 h-fit">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-700 flex items-center gap-2">
-              <Printer size={20} /> Vista Previa
-            </h2>
-            <button 
-              onClick={exportPDF}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-semibold flex items-center gap-2 shadow-lg shadow-indigo-200 transition-all active:scale-95"
-            >
-              <Download size={18} /> Descargar PDF
-            </button>
-          </div>
-
-          {/* Invoice Document */}
-          <div 
-            ref={invoiceRef}
-            className="bg-white shadow-2xl rounded-sm aspect-[1/1.414] w-full p-12 text-slate-800 flex flex-col overflow-hidden"
-            style={{ minHeight: '842px' }}
+        <div className="lg:sticky lg:top-0 h-screen flex flex-col">
+          {/* Invoice Document Wrapper for Scaling */}
+          <div
+            ref={containerWrapperRef}
+            className="flex-1 flex justify-center items-center overflow-visible"
+            style={{ minHeight: 0 }}
           >
-            {/* Header */}
-            <div className="flex justify-between items-start mb-12">
-              <div className="space-y-1">
-                <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white mb-4">
-                  <FileText size={24} />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 uppercase tracking-tight">Factura</h3>
-                <p className="text-slate-500 font-medium">#{data.invoiceSeries}/{data.invoiceNumber}</p>
-              </div>
-              <div className="text-right space-y-1">
-                <p className="text-xs font-bold text-slate-400 uppercase">Fecha de Emisión</p>
-                <p className="font-semibold">{format(new Date(data.invoiceDate), 'dd MMMM yyyy', { locale: es })}</p>
-              </div>
-            </div>
+            <div
+              id="invoice-document"
+              ref={invoiceRef}
+              className={`bg-white shadow-[0_45px_100px_-20px_rgba(0,0,0,0.15)] p-12 text-[#1a1a1a] flex flex-col relative shrink-0 ${isEditMode ? 'overflow-visible' : 'overflow-hidden'}`}
+              style={{
+                width: '800px',
+                height: '1131px',
+                minHeight: '1131px',
+                transform: `scale(${containerScale})`,
+                transformOrigin: 'center center',
+                boxSizing: 'border-box'
+              }}
+            >
+              {/* Transformable Images */}
+              {images.map((img) => (
+                <TransformableImage
+                  key={img.id}
+                  image={img}
+                  onChange={(updates) => updateImage(img.id, updates)}
+                  isEditMode={isEditMode}
+                  containerRef={invoiceRef}
+                />
+              ))}
 
-            {/* Addresses */}
-            <div className="grid grid-cols-2 gap-12 mb-12">
-              <div className="space-y-3">
-                <p className="text-xs font-bold text-indigo-600 uppercase tracking-widest">Emisor</p>
-                <div className="space-y-1">
-                  <p className="font-bold text-slate-900">{data.issuerName || 'Tu Nombre'}</p>
-                  <p className="text-sm text-slate-600 flex items-center gap-1.5"><Info size={14} /> {data.issuerNif || 'NIF'}</p>
-                  <p className="text-sm text-slate-600 flex items-start gap-1.5"><MapPin size={14} className="mt-0.5 shrink-0" /> {data.issuerAddress || 'Tu Dirección'}</p>
+              {/* Header Section */}
+              <div className="flex justify-between items-start mt-12 mb-0 relative z-10 px-12">
+                <div className="space-y-0 pt-20 mt-16">
+                  <h2 className="text-[14px] font-display font-bold uppercase tracking-[0.15em] mb-4 text-[#1a1a1a]">FACTURA</h2>
+                  <div className="space-y-1 text-[11px] font-display mt-0 text-[#1a1a1a]">
+                    <p><span className="font-bold">Núm de factura:</span> <span className="font-light">{data.invoiceSeries}{data.invoiceNumber}</span></p>
+                    <p><span className="font-bold">Data:</span> <span className="font-light">{safeFormatDate(data.invoiceDate)}</span></p>
+                    <p><span className="font-bold">Client:</span> <span className="font-light">{data.clientName}</span></p>
+                    <p><span className="font-bold">NIF:</span> <span className="font-light">{data.clientNif}</span></p>
+                    <p><span className="font-bold">Direcció:</span> <span className="font-light text-[#475569]">{data.clientAddress}</span></p>
+                  </div>
+                </div>
+                <div className="text-right opacity-0 pointer-events-none">
+                  <div className="h-44 w-60" />
                 </div>
               </div>
-              <div className="space-y-3">
-                <p className="text-xs font-bold text-indigo-600 uppercase tracking-widest">Cliente</p>
-                <div className="space-y-1">
-                  <p className="font-bold text-slate-900">{data.clientName || 'Nombre del Cliente'}</p>
-                  <p className="text-sm text-slate-600 flex items-center gap-1.5"><Info size={14} /> {data.clientNif || 'NIF Cliente'}</p>
-                  <p className="text-sm text-slate-600 flex items-start gap-1.5"><MapPin size={14} className="mt-0.5 shrink-0" /> {data.clientAddress || 'Dirección Cliente'}</p>
-                </div>
-              </div>
-            </div>
 
-            {/* Table */}
-            <div className="flex-grow">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b-2 border-slate-100">
-                    <th className="py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Descripción</th>
-                    <th className="py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Cant.</th>
-                    <th className="py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Precio</th>
-                    <th className="py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
+              {/* Items Table */}
+              <div className="relative z-10 mt-16 px-12">
+                <div className="space-y-4">
                   {data.items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="py-4 text-sm font-medium text-slate-700">{item.description || 'Sin descripción'}</td>
-                      <td className="py-4 text-sm text-slate-600 text-center">{item.quantity}</td>
-                      <td className="py-4 text-sm text-slate-600 text-right">{item.unitPrice.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
-                      <td className="py-4 text-sm font-bold text-slate-900 text-right">{(item.quantity * item.unitPrice).toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
-                    </tr>
+                    <div key={item.id} className="flex justify-between items-start">
+                      <div className="space-y-0.5">
+                        <p className="text-[12px] font-display font-bold text-[#1a1a1a]">{item.description || 'Sense descripció'}</p>
+                        <p className="text-[11px] font-display font-light italic text-[#64748b]">Reportatge i entrega de totes les fotos en alta resolució</p>
+                      </div>
+                      <p className="text-[12px] font-display font-bold text-[#1a1a1a]">
+                        {(item.quantity * item.unitPrice).toLocaleString('es-ES', { minimumFractionDigits: 1 })}€
+                      </p>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Footer / Totals */}
-            <div className="mt-12 pt-8 border-t-2 border-slate-100 flex justify-between items-end">
-              <div className="space-y-6">
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-slate-400 uppercase">Método de Pago</p>
-                  <p className="text-sm font-medium text-slate-700">{data.paymentMethod}</p>
-                </div>
-                {data.notes && (
-                  <div className="max-w-xs">
-                    <p className="text-xs font-bold text-slate-400 uppercase mb-1">Notas</p>
-                    <p className="text-xs text-slate-500 leading-relaxed italic">"{data.notes}"</p>
-                  </div>
-                )}
-                {/* Veri*factu QR & Text */}
-                <div className="flex items-center gap-4 mt-8">
-                  <div className="p-1 bg-white border border-slate-200 rounded">
-                    <QRCodeSVG value={qrUrl} size={64} level="M" />
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-medium leading-tight uppercase">
-                    Factura verificable en la sede<br />electrónica de la AEAT<br />
-                    <span className="text-slate-600 font-bold">VERI*FACTU</span>
-                  </div>
                 </div>
               </div>
 
-              <div className="w-64 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Base Imponible</span>
-                  <span className="font-medium">{totals.baseImponible.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+              {/* Totals Section */}
+              <div className="relative z-10 pt-4 border-t border-[#e2e8f0] mt-12 mx-12">
+                <div className="flex justify-between text-[11px] font-display mb-1">
+                  <span className="font-bold text-[#1a1a1a]">Base</span>
+                  <span className="font-bold text-[#1a1a1a]">{totals.baseImponible.toLocaleString('es-ES', { minimumFractionDigits: 0 })}€</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">IVA ({data.ivaRate}%)</span>
-                  <span className="font-medium">{totals.ivaAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <div className="flex flex-col items-end text-[10px] font-display font-light text-[#64748b] mb-6">
+                  <span>+{data.ivaRate}%IVA (+{totals.ivaAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€ sobre base)</span>
+                  {data.irpfRate > 0 && <span>-{data.irpfRate}%IRPF (-{totals.irpfAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€ sobre base)</span>}
                 </div>
-                {data.irpfRate > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Retención IRPF ({data.irpfRate}%)</span>
-                    <span className="font-medium text-rose-600">-{totals.irpfAmount.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                <div className="flex justify-between items-center py-4 border-t border-[#1a1a1a]">
+                  <span className="text-[13px] font-display font-bold uppercase tracking-[0.1em] text-[#1a1a1a]">TOTAL</span>
+                  <span className="text-[13px] font-display font-bold text-[#1a1a1a]">{totals.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€</span>
+                </div>
+              </div>
+              {/* Footer Section (Pinned to bottom) */}
+              <div className="absolute bottom-12 left-12 right-12 z-10 px-6">
+                {/* Issuer Info Centered */}
+                <div className="text-center space-y-0.5 mb-14">
+                  <p className="text-[9.5px] font-display font-light italic text-[#333333]">
+                    {data.issuerName} · <span className="font-bold not-italic">NIF {data.issuerNif}</span> · {data.issuerAddress}
+                  </p>
+                  <p className="text-[9.5px] font-display font-light italic text-[#666666]">
+                    Es realitzarà un único pagament dins el període de 30 dies Núm. de compte: <span className="font-bold italic">BBVA: {data.issuerIban}</span>
+                  </p>
+                </div>
+
+                {/* Contact Info (Icon list below left) */}
+                <div className="flex flex-col items-start space-y-0.5 ml-14">
+                  <div className="text-[10px] font-display font-light text-[#444444] flex gap-3 items-center">
+                    <MousePointer2 size={10} className="rotate-45 opacity-40" /> <span>{data.issuerWeb1}</span>
                   </div>
-                )}
-                <div className="flex justify-between items-center pt-3 border-t border-slate-100">
-                  <span className="text-lg font-bold text-slate-900 uppercase tracking-tight">Total</span>
-                  <span className="text-2xl font-black text-indigo-600">{totals.total.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</span>
+                  <div className="text-[10px] font-display font-light text-[#444444] flex gap-3 items-center">
+                    <MousePointer2 size={10} className="rotate-45 opacity-40" /> <span>{data.issuerWeb2}</span>
+                  </div>
+                  <div className="text-[10px] font-display font-light text-[#444444] flex gap-3 items-center">
+                    <Mail size={10} /> <span>{data.issuerContactEmail}</span>
+                  </div>
+                  <div className="text-[10px] font-display font-light text-[#444444] flex gap-3 items-center">
+                    <Phone size={10} /> <span>{data.issuerContactPhone}</span>
+                  </div>
+                  <div className="text-[10px] font-display font-light text-[#444444] flex gap-3 items-center">
+                    <MapPin size={10} /> <span>{data.issuerContactAddress}</span>
+                  </div>
+                  <div className="text-[10px] font-display font-light text-[#444444] flex gap-3 items-center">
+                    <Instagram size={10} /> <span>@{data.issuerInstagram1}</span>
+                  </div>
+                  <div className="text-[10px] font-display font-light text-[#444444] flex gap-3 items-center">
+                    <Instagram size={10} /> <span>@{data.issuerInstagram2}</span>
+                  </div>
                 </div>
               </div>
             </div>
