@@ -4,7 +4,7 @@ import path from 'path';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/Sicalipsis-Factura/',
+  base: '/sicalipsis-factura/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

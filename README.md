@@ -24,8 +24,8 @@
 
 1. **Clona el repositorio**:
    ```bash
-   git clone https://github.com/mimpho/Sicalipsis-Factura.git
-   cd Sicalipsis-Factura
+   git clone https://github.com/mimpho/sicalipsis-factura.git
+   cd sicalipsis-factura
    ```
 
 2. **Instala las dependencias**:
