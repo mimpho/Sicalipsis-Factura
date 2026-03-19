@@ -231,37 +231,26 @@ export default function App() {
       <div className="mx-auto grid grid-cols-1 lg:grid-cols-2 max-w-[2000px]">
 
         {/* Form Section */}
-        <div className="space-y-10 p-4 md:p-8 lg:p-12">
-          <header className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-y-4">
-              <div className="flex items-center gap-6">
-                <img
-                  src={imageAssets.logo || ASSETS.logo}
-                  alt="Sicalipsis Logo"
-                  className="h-20 w-auto"
-                />
-                <h1 className="uppercase font-extralight opacity-75 text-[22px] font-[400]">
-                  Generador de factures
-                </h1>
-              </div>
+        <div className="p-4 md:p-8 lg:p-12 lg:pr-6">
+          <header className="flex flex-col gap-6 mb-6">
+            <div className="flex flex-wrap justify-center lg:justify-between gap-y-4">
+              <img
+                src={imageAssets.logo || ASSETS.logo}
+                alt="Sicalipsis Logo"
+                className="h-20 w-auto"
+              />
               <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={exportPDF}
-                  className="fixed z-10 bottom-8 left-1/2 -translate-x-1/2 md:static md:translate-x-0 bg-[#1a1a1a] text-white px-6 py-3 rounded-full font-[400] text-sm uppercase tracking-widest hover:bg-[#222222] transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-black/10 whitespace-nowrap"
+                  className="fixed z-10 bottom-8 left-1/2 -translate-x-1/2 lg:static lg:translate-x-0 bg-[#1a1a1a] text-white px-6 py-3 rounded-full font-[400] text-sm uppercase tracking-widest hover:bg-[#222222] transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-black/10 whitespace-nowrap"
                 >
                   <Download size={14} /> Generar PDF
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-[13px] uppercase tracking-[0.15em] opacity-60">
-              <div className="flex items-center gap-1.5">
-                <Camera size={12} /> Fotografia
-              </div>
-              <div className="w-1 h-1 bg-[var(--ink)] rounded-full" />
-              <div className="flex items-center gap-1.5">
-                <PenTool size={12} /> Disseny gràfic
-              </div>
-            </div>
+            <h1 className="text-center lg:text-left uppercase font-extralight opacity-75 text-[22px] font-[400]">
+              Generador de factures
+            </h1>
           </header>
 
           <div className="space-y-8">
