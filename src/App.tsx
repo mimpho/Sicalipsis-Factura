@@ -13,7 +13,7 @@ import { InvoiceData, InvoiceItem, DEFAULT_INVOICE } from './types';
 
 // Static asset paths
 const ASSETS = {
-  logo: 'images/logo.jpeg',
+  logo: 'images/logo-sicalipsis.webp',
   header: 'images/floral_header.jpeg',
   footer: 'images/floral_footer.jpeg'
 };
@@ -240,7 +240,7 @@ export default function App() {
                   alt="Sicalipsis Logo"
                   className="h-20 w-auto"
                 />
-                <h1 className="uppercase font-extralight opacity-75 text-[26px] font-[400]">
+                <h1 className="uppercase font-extralight opacity-75 text-[22px] font-[400]">
                   Generador de factures
                 </h1>
               </div>
@@ -268,7 +268,7 @@ export default function App() {
             {/* Client Data */}
             <section className="space-y-6">
               <div className="flex items-center gap-3 border-b border-slate-300 pb-2">
-                <h2 className="text-[26px]">Dades del Client</h2>
+                <h2 className="text-[22px]">Dades del Client</h2>
                 <span className="uppercase tracking-widest">Receptor</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -301,7 +301,7 @@ export default function App() {
             {/* Invoice Details */}
             <section className="space-y-6">
               <div className="flex items-center gap-3 border-b border-slate-300 pb-2">
-                <h2 className="text-[26px]">Detalls</h2>
+                <h2 className="text-[22px]">Detalls</h2>
                 <span className="uppercase tracking-widest">Factura</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -333,7 +333,7 @@ export default function App() {
             <section className="space-y-6">
               <div className="flex items-center justify-between border-b border-slate-300 pb-2">
                 <div className="flex items-center gap-3">
-                  <h2 className="text-[26px]">Conceptes</h2>
+                  <h2 className="text-[22px]">Conceptes</h2>
                   <span className="uppercase tracking-widest">Serveis</span>
                 </div>
                 <button
@@ -405,7 +405,7 @@ export default function App() {
             {/* Taxes & Payment */}
             <section className="space-y-6">
               <div className="flex items-center gap-3 border-b border-slate-300 pb-2">
-                <h2 className="text-[26px]">Impostos i Pagament</h2>
+                <h2 className="text-[22px]">Impostos i Pagament</h2>
                 <span className="uppercase tracking-widest">Final</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -462,7 +462,7 @@ export default function App() {
                 className="w-full flex items-center justify-between border-b border-slate-300 pb-2 hover:opacity-70 transition-opacity"
               >
                 <div className="flex items-center gap-3">
-                  <h2 className="text-[26px]">Les meves dades</h2>
+                  <h2 className="text-[22px]">Les meves dades</h2>
                   <span className="uppercase tracking-widest">Emissor</span>
                 </div>
                 {showIssuer ? <ChevronUp size={20} className="text-slate-300" /> : <ChevronDown size={20} className="text-slate-300" />}
@@ -602,7 +602,7 @@ export default function App() {
                   src={imageAssets.logo}
                   alt=""
                   className="absolute"
-                  style={{ top: '150px', right: '0px', width: '300px' }}
+                  style={{ top: '200px', right: '80px', width: '175px' }}
                 />
               )}
               {imageAssets.footer && (
