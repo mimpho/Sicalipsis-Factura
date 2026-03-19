@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { ca } from 'date-fns/locale';
 import { InvoiceData, InvoiceItem, DEFAULT_INVOICE } from './types';
 
 // Static asset paths
@@ -120,7 +120,7 @@ export default function App() {
     try {
       const date = new Date(dateStr);
       if (isNaN(date.getTime())) return dateStr;
-      return format(date, 'dd MMMM yyyy', { locale: es });
+      return format(date, 'dd MMMM yyyy', { locale: ca });
     } catch (e) {
       return dateStr;
     }
@@ -234,20 +234,20 @@ export default function App() {
         <div className="space-y-10 p-4 md:p-8 lg:p-12">
           <header className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-y-4">
-              <div className="flex items-center gap-6 shrink-0">
+              <div className="flex items-center gap-6">
                 <img
                   src={imageAssets.logo || ASSETS.logo}
                   alt="Sicalipsis Logo"
                   className="h-20 w-auto"
                 />
-                <h1 className="uppercase tracking-wider font-extralight opacity-75 text-[26px] font-[400] tracking-tight whitespace-nowrap">
+                <h1 className="uppercase font-extralight opacity-75 text-[26px] font-[400]">
                   Generador de factures
                 </h1>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={exportPDF}
-                  className="bg-[#1a1a1a] text-white px-6 py-2.5 rounded-full font-[400] text-xs uppercase tracking-widest hover:bg-[#222222] transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-black/10 whitespace-nowrap"
+                  className="fixed z-10 bottom-4 left-1/2 -translate-x-1/2 md:static md:translate-x-0 bg-[#1a1a1a] text-white px-6 py-2.5 rounded-full font-[400] text-xs uppercase tracking-widest hover:bg-[#222222] transition-all active:scale-95 flex items-center gap-2 shadow-lg shadow-black/10 whitespace-nowrap"
                 >
                   <Download size={14} /> Generar PDF
                 </button>
@@ -338,7 +338,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={addItem}
-                  className="text-[#1a1a1a] hover:underline  uppercase tracking-widest flex items-center gap-1 transition-all"
+                  className="font-normal text-[#1a1a1a] hover:underline  uppercase tracking-widest flex items-center gap-1 transition-all"
                 >
                   <Plus size={12} /> Afegir Concepte
                 </button>

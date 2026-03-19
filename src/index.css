@@ -19,7 +19,7 @@
   body {
     @apply bg-[var(--bg)] text-[var(--ink)] font-body;
     font-size: 12px;
-    font-weight: 200;
+    font-weight: 300;
     font-variation-settings: "wdth" 75;
   }
 
