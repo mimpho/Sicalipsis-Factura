@@ -276,7 +276,7 @@ export default function App() {
       <div className="mx-auto grid grid-cols-1 lg:grid-cols-2 max-w-[2000px]">
 
         {/* Form Section */}
-        <div className="p-4 md:p-8 lg:p-12 lg:pr-6">
+        <div className="px-4 py-8 md:p-8 lg:p-12 lg:pr-6">
           <header className="flex flex-col gap-6 mb-6">
             <div className="flex flex-wrap justify-center lg:justify-between gap-y-4">
               <img
